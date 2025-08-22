@@ -189,3 +189,6 @@ async def swanlab_pipeline(input_api:str, workspace_name:str=None, project_name:
         print(f"[Fallback] get_expe_metrics failed: {e}")
 
     return metrics
+
+if __name__ == "__main__":
+    mcp.run()
