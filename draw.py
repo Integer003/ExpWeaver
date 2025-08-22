@@ -67,3 +67,6 @@ async def plot_experiment_acc_loss(metrics_csv: str) -> dict:
             }
         }
     }
+
+if __name__ == "__main__":
+    mcp.run()
