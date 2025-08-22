@@ -3,11 +3,12 @@ from mcp.types import TextContent
 import pandas
 from pandas import DataFrame
 
+# swanlab Part
+
 import swanlab
 from swanlab.api.types import ApiResponse, Experiment, Project
 
 mcp = FastMCP()
-
 """
 @mcp.tool()
 async def set_api_token(api: str) -> str:
@@ -188,8 +189,3 @@ async def swanlab_pipeline(input_api:str, workspace_name:str=None, project_name:
         print(f"[Fallback] get_expe_metrics failed: {e}")
 
     return metrics
-
-
-
-if __name__ == "__main__":
-    mcp.run()
