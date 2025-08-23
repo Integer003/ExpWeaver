@@ -10,6 +10,7 @@ import os
 os.environ["HTTP_PROXY"] = "http://127.0.0.1:7897"
 os.environ["HTTPS_PROXY"] = "http://127.0.0.1:7897"
 
+
 import wandb
 from typing import Any
 
@@ -51,6 +52,18 @@ async def list_projects(entity:str=None) -> list[dict]:
     
     return projects_list
 
+from typing import Any
+import json
+
+def convert_to_string_dict(obj):
+    """Convert all values in a nested dictionary to strings."""
+    if isinstance(obj, dict):
+        return {str(k): convert_to_string_dict(v) for k, v in obj.items()}
+    elif isinstance(obj, (list, tuple)):
+        return str(obj)  
+    else:
+        return str(obj)
+    
 @mcp.tool()
 async def list_runs(
         project_path:str, 
@@ -92,8 +105,9 @@ async def list_runs(
     runs_list = []
 
     runs = api.runs(path=project_path, filters=filters)
-    artifacts = []
+    
     for run in runs:
+        artifacts = []
         for artifact in run.logged_artifacts():
             artifacts.append({
                 "name": artifact.name,
@@ -106,7 +120,31 @@ async def list_runs(
                 "aliases": artifact.aliases,
                 "tags": artifact.tags
             })
+            
+        # try to convert summary to dict with string keys and string values
+        try:
+            summary_keys = []
+            try:
+                for key in run.summary.keys():
+                    summary_keys.append(key)
+            except:
+                # fallback method
+                summary_keys = list(run.summary._summary.keys()) if hasattr(run.summary, '_summary') else []
 
+            # build the summary dictionary with string keys and string values
+            summary_dict_str = {}
+            for key in summary_keys:
+                try:
+                    value = run.summary[key]
+                    summary_dict_str[str(key)] = convert_to_string_dict(value)
+                except Exception as inner_e:
+                    print(f"Warning: Could not get value for key {key} in run {run.name}: {inner_e}")
+                    summary_dict_str[str(key)] = "N/A"
+                    
+        except Exception as e:
+            print(f"Warning: Could not convert summary for run {run.name}: {e}")
+            summary_dict_str = {}
+            
         runs_list.append({
             "entity": getattr(run, "entity", None),
             "id": getattr(run, "id", None),
@@ -115,14 +153,16 @@ async def list_runs(
             "path": getattr(run, "path", None),
             "state": getattr(run, "state", None),
             "url": getattr(run, "url", None),
-            "summary": dict(run.summary),
+            "summary": summary_dict_str,
+            "config": dict(run.config),
             "artifacts": artifacts
         })
-    
+
     return runs_list
 
 import re
 import requests
+
 
 @mcp.tool()
 async def list_artifact(url:str, save_dir: str = "./artifacts") -> str:
@@ -151,6 +191,83 @@ async def list_artifact(url:str, save_dir: str = "./artifacts") -> str:
     path = artifact.download(root=save_dir)
     
     return path
+
+@mcp.tool()
+async def filter_runs_by_single_param_difference(project_path:str, param_name: str, filters: dict[str, Any]=None) -> list[dict]:
+    """
+    Filter runs in a W&B project to find experiments that differ only in a single specified parameter, 
+    while all other parameters remain identical. This is useful for comparing experiments that form 
+    a controlled parameter sweep or ablation study.
+
+    Args:
+        project_path (str): The path of the target project in format "entity/project".
+        param_name (str): The name of the parameter to check for differences, such as 'learning_rate', 
+                         'batch_size', or 'model_type'. This parameter will vary across the filtered runs 
+                         while all other config parameters remain constant.
+        filters (dict[str, Any], optional): Additional filters to apply before grouping by parameter 
+                                          differences. Uses the same filter format as list_runs(). 
+                                          Defaults to None.
+
+    Returns:
+        list[dict]: A list of run dictionaries that belong to the largest group of experiments 
+                   differing only in the specified parameter. The runs are sorted by the parameter 
+                   values in ascending order. Each run dictionary contains the same keys as 
+                   returned by list_runs(): entity, id, metadata, name, path, state, url, 
+                   summary, config, and artifacts.
+
+    Example:
+        # Find all runs that differ only in learning rate
+        filtered_runs = await filter_runs_by_single_param_difference(
+            "my-team/my-project", 
+            "learning_rate"
+        )
+        
+        # Find finished runs that differ only in batch size
+        filtered_runs = await filter_runs_by_single_param_difference(
+            "my-team/my-project", 
+            "batch_size",
+            filters={"state": "finished"}
+        )
+    """
+    runs=await list_runs(project_path, filters)
+
+    if not runs:
+        return []
+        
+    # 提取所有runs的config，移除指定参数
+    configs_without_param = []
+    param_values = []
+    
+    for run in runs:
+        config = run["config"]
+
+        # 保存指定参数的值
+        param_value = config.get(param_name, None)
+        param_values.append(param_value)
+        
+        # 移除指定参数，创建用于比较的config
+        config_copy = config.copy()
+        if param_name in config_copy:
+            del config_copy[param_name]
+        configs_without_param.append(config_copy)
+    
+    # 找到最常见的config模式（移除指定参数后）
+    from collections import defaultdict
+    config_groups = defaultdict(list)
+    
+    for i, config in enumerate(configs_without_param):
+        # 将config转换为可哈希的形式进行分组
+        config_key = tuple(sorted(config.items()))
+        config_groups[config_key].append(i)
+    
+    # 找到包含runs最多的组
+    largest_group_indices = max(config_groups.values(), key=len)
+    sorted_indices = sorted(largest_group_indices
+                            , key=lambda i: param_values[i])
+
+    filtered_runs = [runs[i] for i in sorted_indices]
+
+    return filtered_runs
 
 if __name__ == "__main__":
     mcp.run()
