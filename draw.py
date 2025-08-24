@@ -18,13 +18,15 @@ def fig_to_base64(fig) -> str:
     return base64.b64encode(buf.read()).decode("utf-8")
 
 @mcp.tool()
-async def plot_experiment_acc_loss(metrics_csv: str, columns: list = None) -> dict:
+async def plot_experiment_acc_loss(metrics_csv: str, columns: list = None, save_route: str = "None") -> dict:
     """
     从 SwanLab 实验的 CSV 数据绘制一张图，用户可指定要画的列名列表。
     返回内容既包含 markdown 渲染，也包含可下载的文件。
     Args:
         metrics_csv: CSV 字符串
         columns(可选): 要画的列名列表，默认自动检测所有数值列
+        save_route (str, optional): Path to save the generated plot image.
+            If not specified, the image will not be saved.
     """
     df = pd.read_csv(io.StringIO(metrics_csv))
     df["step"] = range(len(df))
@@ -47,6 +49,10 @@ async def plot_experiment_acc_loss(metrics_csv: str, columns: list = None) -> di
         else:
             ax.axis("off")
     fig.tight_layout()
+
+    if save_route != "None":
+        plt.savefig(save_route, dpi=150)
+
     b64 = fig_to_base64(fig)
     plt.close(fig)
     return {
@@ -60,12 +66,14 @@ async def plot_experiment_acc_loss(metrics_csv: str, columns: list = None) -> di
     }
 
 @mcp.tool()
-async def plot_contrast_experiments(summary_dict_list: list[dict], param_names: list[str] = None) -> dict:
+async def plot_contrast_experiments(summary_dict_list: list[dict], param_names: list[str] = None, save_route: str = "None") -> dict:
     """
     对比多个实验的多个参数的 value 字段，绘制热力图。
     Args:
         summary_dict_list: List[dict]，每个实验的 summary dict
         param_names（可选）: List[str]，要对比的参数名（如 acc、loss、f1、auc 等），可选，默认取所有实验参数的并集
+        save_route (str, optional): Path to save the generated plot image.
+            If not specified, the image will not be saved.
     Returns:
         dict: 包含热力图的 markdown 和 base64 文件
     """
@@ -96,6 +104,9 @@ async def plot_contrast_experiments(summary_dict_list: list[dict], param_names: 
     plt.title("Experiment Parameter Comparison (value)")
     plt.tight_layout()
 
+    if save_route != "None":
+        plt.savefig(save_route, dpi=150)
+
     b64 = fig_to_base64(plt.gcf())
     plt.close(plt.gcf())
     return {
@@ -114,7 +125,8 @@ def plot_with_errorband_mcp(
     x: str,
     y: str,
     labels: list[str] = None,
-    ci: int = -1
+    ci: int = -1,
+    save_route: str = "None"
 ) -> dict:
     """
     绘制带误差带的折线图（多组数据对比）。
@@ -139,6 +151,8 @@ def plot_with_errorband_mcp(
         - -1 表示显示均值 ± 标准差；
         - 整数（如 95）表示 bootstrap 置信区间；
         - 0 表示不绘制误差带。
+    save_route (str, optional): Path to save the generated plot image.
+        If not specified, the image will not be saved.
 
     返回
     -------
@@ -169,6 +183,9 @@ def plot_with_errorband_mcp(
     plt.figure(figsize=(8, 6))
     sns.lineplot(data=data_all, x=x, y=y, hue="__group__", ci=ci)
     plt.tight_layout()
+
+    if save_route != "None":
+        plt.savefig(save_route, dpi=150)
 
     # 转 base64
     buf = io.BytesIO()

@@ -26,7 +26,7 @@ mcp = FastMCP(name="plotting-mcp", host="0.0.0.0", port=MCP_PORT)
 
 @mcp.tool()
 def generate_plot(
-    csv_data: str, plot_type: str = "line", json_kwargs: str = "None"
+    csv_data: str, plot_type: str = "line", json_kwargs: str = "None", save_route: str = "None"
 ) -> tuple[TextContent, ImageContent]:
     """
     Generate a plot from CSV data.
@@ -50,6 +50,8 @@ def generate_plot(
                 - `c` (str): marker color (default: 'red')
                 - `alpha` (float): transparency (default: 0.7). Between 0 and 1.
                 - `marker` (str): marker style (default: 'o')
+        save_route (str, optional): Path to save the generated plot image.
+            If not specified, the image will not be saved.
 
     Returns:
         tuple[TextContent, ImageContent]: A tuple containing a success message and the
@@ -75,6 +77,11 @@ def generate_plot(
             kwargs=kwargs,
             size=sizeof_fmt(len(plot_bytes)),
         )
+
+        if save_route != "None":
+            with open(save_route, "wb") as f:
+                f.write(plot_bytes)
+
         return (
             TextContent(type="text", text="Plot generated successfully"),
             ImageContent(
