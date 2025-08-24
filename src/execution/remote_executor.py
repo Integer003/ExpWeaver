@@ -3,6 +3,7 @@ from mcp.types import TextContent
 import paramiko
 from typing import Optional, List, Dict
 import os
+from .terminal_executor import *
 
 mcp = FastMCP()
 

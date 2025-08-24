@@ -14,10 +14,10 @@ from mcp.server.fastmcp import FastMCP
 from mcp.types import ImageContent, TextContent
 from starlette.responses import JSONResponse, Response
 
-from configure_logging import configure_logging
-from constants import MCP_PORT
-from plot import plot_to_bytes
-from utils import sizeof_fmt
+from ..shared.configure_logging import configure_logging
+from ..shared.constants import MCP_PORT
+from .plot import plot_to_bytes
+from ..shared.utils import sizeof_fmt
 
 logger = structlog.get_logger(__name__)
 
@@ -132,7 +132,7 @@ def main(log_level: str = "INFO", reload: bool = False, transport: str = "http")
         mcp.run("stdio")
     elif transport == "http":
         uvicorn.run(
-            "plotting_mcp.server:starlette_app",
+            "src.visualization.plotting_server:starlette_app",
             host=mcp.settings.host,
             port=mcp.settings.port,
             log_config=logging_dict,

@@ -8,7 +8,7 @@ import pandas as pd
 import seaborn as sns
 from cartopy.mpl.geoaxes import GeoAxes
 
-from constants import PLOT_DPI, PLOT_FIGURE_SIZE
+from ..shared.constants import PLOT_DPI, PLOT_FIGURE_SIZE
 
 
 def _auto_rotate_labels(ax: plt.Axes, axis: Literal["x", "y"] = "x") -> None:
